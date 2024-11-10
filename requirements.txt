@@ -1,0 +1,10 @@
+numpy
+torch
+torchvision
+tensorboardX
+mlflow
+pillow
+matplotlib
+dvc
+boto3
+grafana-client
