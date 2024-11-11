@@ -34,9 +34,17 @@ jobs:
         echo "Directory structure:"
         ls -R
 
-    - name: Run Training and Evaluation
+    # Set Working Directory to 'script' folder before running train.py
+    - name: Set Working Directory to Script Folder
+      working-directory: script
       run: |
-        python script/train.py
+        echo "Changed directory to script folder"
+        pwd
+
+    - name: Run Training and Evaluation
+      working-directory: script
+      run: |
+        python train.py
 
   build_and_push_docker:
     runs-on: ubuntu-latest
