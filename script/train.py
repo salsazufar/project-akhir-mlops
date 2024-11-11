@@ -62,8 +62,8 @@ def initialize_model(num_classes):
     model_ft.fc = nn.Linear(num_ftrs, num_classes)
     return model_ft
 
-# Training function
 def train_model(model, criterion, optimizer, scheduler, num_epochs):
+    mlflow.set_tracking_uri("file://" + os.path.abspath("./mlruns"))  # Set custom tracking URI
     run = mlflow.start_run()
     run_id = run.info.run_id
     os.environ["MLFLOW_RUN_ID"] = run_id
