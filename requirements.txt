@@ -2,9 +2,10 @@ numpy
 torch
 torchvision
 tensorboardX
-mlflow
 pillow
 matplotlib
+mlflow
 dvc
 boto3
 grafana-client
+torchsummary
