@@ -19,31 +19,32 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: 3.11
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Setup DVC
+    # Directory structure check for debugging paths
+    - name: Check Directory Structure
       run: |
-        dvc init
-        dvc pull
+        echo "Current directory:"
+        pwd
+        echo "Directory structure:"
+        ls -R
 
-    - name: Run Training and Evaluation with MLflow Tracking
-      env:
-        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+    # Set Working Directory to 'script' folder before running train.py
+    - name: Set Working Directory to Script Folder
+      working-directory: script
+      run: |
+        echo "Changed directory to script folder"
+        pwd
+
+    - name: Run Training and Evaluation
+      working-directory: script
       run: |
         python train.py
-
-    - name: Push DVC Metadata
-      run: |
-        dvc push
-
-    - name: Deploy Metrics to Grafana
-      run: |
-        python deploy_metrics.py
 
   build_and_push_docker:
     runs-on: ubuntu-latest
