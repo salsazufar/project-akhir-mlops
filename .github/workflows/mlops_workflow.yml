@@ -26,23 +26,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Setup DVC
-      run: |
-        dvc init -f
-        dvc pull --force 
-
     - name: Run Training and Evaluation
       run: |
         python train.py
-
-    - name: Push DVC Metadata
-      run: |
-        dvc push
-
-    - name: Deploy Metrics to Grafana
-      run: |
-        python deploy_metrics.py
-
+        
   build_and_push_docker:
     runs-on: ubuntu-latest
     needs: train_and_evaluate
