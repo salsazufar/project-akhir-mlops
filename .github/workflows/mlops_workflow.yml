@@ -26,11 +26,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Download Dataset
-      run: |
-        mkdir -p dataset  # Create the dataset directory if it doesn't exist
-        gdown --folder https://drive.google.com/drive/folders/1svKDvDBaE31cHDTU0ESgfsgzVvgb7oPy -O dataset
-
     - name: Run Training and Evaluation
       run: |
         python script/train.py
