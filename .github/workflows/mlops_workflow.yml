@@ -26,28 +26,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    # Directory structure check
+    - name: Check Directory Structure
+      run: |
+        echo "Current directory:"
+        pwd
+        echo "Directory structure:"
+        ls -R
+
     - name: Run Training and Evaluation
       run: |
         python script/train.py
-
-  build_and_push_docker:
-    runs-on: ubuntu-latest
-    needs: train_and_evaluate
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Build Docker Image
-      run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/mlops_project:latest .
-
-    - name: Push Docker Image
-      run: |
-        docker push ${{ secrets.DOCKER_USERNAME }}/mlops_project:latest
