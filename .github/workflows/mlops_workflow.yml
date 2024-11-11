@@ -19,7 +19,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: 3.11
 
     - name: Install dependencies
       run: |
@@ -28,12 +28,10 @@ jobs:
 
     - name: Setup DVC
       run: |
-        dvc init
+        dvc init -f
         dvc pull
 
-    - name: Run Training and Evaluation with MLflow Tracking
-      env:
-        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+    - name: Run Training and Evaluation
       run: |
         python train.py
 
