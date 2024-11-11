@@ -59,24 +59,19 @@ class_names = datasets['train'].classes
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# Model initialization
+# Model initialization function
 def initialize_model(num_classes):
-    model_ft = models.resnet18(pretrained=True)
+    model_ft = models.resnet18(weights='IMAGENET1K_V1')
     num_ftrs = model_ft.fc.in_features
     model_ft.fc = nn.Linear(num_ftrs, num_classes)
     return model_ft
-
-model = initialize_model(num_classes).to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 # Training function
 def train_model(model, criterion, optimizer, scheduler, num_epochs):
     run = mlflow.start_run()  # Start MLflow tracking
     run_id = run.info.run_id  # Mendapatkan run ID dari MLflow
     print(f"Run ID: {run_id}")  # Mencetak run ID
-    os.environ["MLFLOW_RUN_ID"] = run_id  # Menyimpan run ID ke dalam environment variable  # Start MLflow tracking
+    os.environ["MLFLOW_RUN_ID"] = run_id  # Menyimpan run ID ke dalam environment variable
     mlflow.log_param("num_epochs", num_epochs)
     mlflow.log_param("batch_size", batch_size)
     mlflow.log_param("num_classes", num_classes)
@@ -152,5 +147,13 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
 
     return model
 
-# Train the model
-model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs)
+# Main script
+if __name__ == "__main__":
+    # Model initialization
+    model = initialize_model(num_classes).to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+
+    # Train the model
+    model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs)
