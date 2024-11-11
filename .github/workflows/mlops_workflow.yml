@@ -45,6 +45,10 @@ jobs:
       working-directory: script
       run: |
         python train.py
+        echo "Contents of script folder:"
+        ls -R
+        echo "Contents of mlruns folder:"
+        ls -R mlruns
 
   build_and_push_docker:
     runs-on: ubuntu-latest

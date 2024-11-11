@@ -118,12 +118,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
 
         model.load_state_dict(best_model_wts)
 
-        # Ensure the model log path is within a writable directory
-        artifact_path = "./mlruns/artifacts/model"
-        os.makedirs(artifact_path, exist_ok=True)
+        # Simplified artifact path
+        artifact_path = "model"
         mlflow.pytorch.log_model(model, artifact_path=artifact_path)
 
     return model
+
 
 # Main script
 if __name__ == "__main__":
