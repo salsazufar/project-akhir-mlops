@@ -16,3 +16,4 @@ s3transfer      # Updated version
 botocore       # Updated version
 six
 python-dateutil
+prometheus_client
