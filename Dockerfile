@@ -1,14 +1,12 @@
-# Use an official Python runtime as a parent image
-FROM python:3.8-slim
+# Dockerfile
+FROM python:3.11-slim
 
-# Set the working directory in the container
+# Set work directory
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Copy dependency files
+COPY requirements.txt constraints.txt ./
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Run training script by default (you can specify other entry points if needed)
-CMD ["python", "train.py"]
+RUN pip install --upgrade pip \
+    && pip install -r requirements.txt -c constraints.txt
