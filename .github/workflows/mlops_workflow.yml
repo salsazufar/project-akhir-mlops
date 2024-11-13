@@ -35,7 +35,7 @@ jobs:
         SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
         SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
       run: |
-        dvc remote add -d supabase-s3 s3://MLOps
+        dvc remote add -d supabase-s3 s3://MLOps --force
         dvc remote modify supabase-s3 endpointurl $SUPABASE_S3_ENDPOINT
         dvc remote modify supabase-s3 region $SUPABASE_S3_REGION
         dvc remote modify supabase-s3 access_key_id $SUPABASE_S3_ACCESS_KEY_ID
