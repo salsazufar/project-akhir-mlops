@@ -33,11 +33,12 @@ jobs:
                   git config --global user.email "actions@github.com"
                   git config --global user.name "GitHub Actions"
 
-            # Remove dataset from Git tracking and commit the change
-            - name: Remove dataset from Git tracking
+            # Remove dataset and model from Git tracking and commit the changes
+            - name: Remove dataset and model from Git tracking
               run: |
                   git rm -r --cached dataset || true
-                  git commit -m "stop tracking dataset" --allow-empty
+                  git rm -r --cached model || true
+                  git commit -m "stop tracking dataset and model" --allow-empty
 
             - name: Configure DVC
               env:
@@ -52,6 +53,13 @@ jobs:
                   dvc remote modify supabase-s3 access_key_id $SUPABASE_S3_ACCESS_KEY_ID
                   dvc remote modify supabase-s3 secret_access_key $SUPABASE_S3_SECRET_ACCESS_KEY
 
+            # Add dataset and model to DVC tracking
+            - name: Add dataset and model to DVC tracking
+              run: |
+                  dvc add dataset
+                  dvc add model
+
+            # Pull data from DVC remote before training
             - name: Pull Data from DVC Remote
               run: |
                   dvc pull
@@ -65,10 +73,8 @@ jobs:
             # Push new or updated data/model to DVC remote
             - name: Push to DVC Remote
               run: |
-                  dvc add dataset
-                  dvc add model
                   dvc push
-
+                  
     # Step 2: Build and Push Docker Image
     build_and_push_docker:
         runs-on: ubuntu-latest
