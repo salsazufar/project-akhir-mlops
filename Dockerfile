@@ -5,11 +5,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy dependency files
-COPY requirements.txt constraints.txt ./
+COPY requirements.txt ./
 
-# Install dependencies
+# Install dependencies without constraints
 RUN pip install --upgrade pip \
-    && pip install -r requirements.txt -c constraints.txt
+    && pip install -r requirements.txt
 
 # Copy the script directory to the container
 COPY script/ /app/script
