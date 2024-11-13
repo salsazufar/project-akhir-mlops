@@ -9,3 +9,4 @@ dvc
 boto3
 grafana-client
 torchsummary
+dvc[s3]

@@ -9,6 +9,7 @@ on:
       - main
 
 jobs:
+  # Step 1: Training and Evaluating Model with DVC Configuration
   train_and_evaluate:
     runs-on: ubuntu-latest
 
@@ -26,30 +27,39 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # Directory structure check for debugging paths
-    - name: Check Directory Structure
+    # Configure DVC with Supabase S3 credentials
+    - name: Configure DVC
+      env:
+        SUPABASE_S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
+        SUPABASE_S3_REGION: ${{ secrets.SUPABASE_S3_REGION }}
+        SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+        SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
       run: |
-        echo "Current directory:"
-        pwd
-        echo "Directory structure:"
-        ls -R
+        dvc remote add -d supabase-s3 s3://MLOps
+        dvc remote modify supabase-s3 endpointurl $SUPABASE_S3_ENDPOINT
+        dvc remote modify supabase-s3 region $SUPABASE_S3_REGION
+        dvc remote modify supabase-s3 access_key_id $SUPABASE_S3_ACCESS_KEY_ID
+        dvc remote modify supabase-s3 secret_access_key $SUPABASE_S3_SECRET_ACCESS_KEY
 
-    # Set Working Directory to 'script' folder before running train.py
-    - name: Set Working Directory to Script Folder
-      working-directory: script
+    # Pull data from DVC remote before training
+    - name: Pull Data from DVC Remote
       run: |
-        echo "Changed directory to script folder"
-        pwd
+        dvc pull
 
+    # Run Training and Evaluation
     - name: Run Training and Evaluation
       working-directory: script
       run: |
         python train.py
-        echo "Contents of script folder:"
-        ls -R
-        echo "Contents of mlruns folder:"
-        ls -R mlruns
 
+    # Push new or updated data/model to DVC remote
+    - name: Push to DVC Remote
+      run: |
+        dvc add dataset
+        dvc add model
+        dvc push
+
+  # Step 2: Build and Push Docker Image
   build_and_push_docker:
     runs-on: ubuntu-latest
     needs: train_and_evaluate
