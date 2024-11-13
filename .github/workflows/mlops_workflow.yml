@@ -22,24 +22,34 @@ jobs:
               with:
                   python-version: 3.11
 
+            # Cache Python dependencies to speed up pip installation
+            - name: Cache dependencies
+              uses: actions/cache@v2
+              with:
+                  path: ~/.cache/pip
+                  key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pip-
+
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip
                   pip install -r requirements.txt
 
-            # Set Git configuration for committing
+            # Configure Git Identity
             - name: Configure Git Identity
               run: |
                   git config --global user.email "actions@github.com"
                   git config --global user.name "GitHub Actions"
 
-            # Remove dataset and model from Git tracking and commit the changes
+            # Stop tracking dataset and model in Git
             - name: Remove dataset and model from Git tracking
               run: |
                   git rm -r --cached dataset || true
                   git rm -r --cached model || true
                   git commit -m "stop tracking dataset and model" --allow-empty
 
+            # Configure DVC
             - name: Configure DVC
               env:
                   SUPABASE_S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
