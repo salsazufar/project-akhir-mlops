@@ -10,3 +10,9 @@ COPY requirements.txt constraints.txt ./
 # Install dependencies
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt -c constraints.txt
+
+# Copy the script directory to the container
+COPY script/ /app/script
+
+# Set default command
+CMD ["python", "/app/script/train.py"]
