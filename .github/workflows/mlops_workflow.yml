@@ -27,7 +27,11 @@ jobs:
                   python -m pip install --upgrade pip
                   pip install -r requirements.txt
 
-            # Configure DVC with Supabase S3 credentials
+            - name: Remove dataset from Git tracking
+              run: |
+                  git rm -r --cached dataset || true
+                  git commit -m "stop tracking dataset" --allow-empty
+
             - name: Configure DVC
               env:
                   SUPABASE_S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
@@ -40,11 +44,6 @@ jobs:
                   dvc remote modify supabase-s3 region $SUPABASE_S3_REGION
                   dvc remote modify supabase-s3 access_key_id $SUPABASE_S3_ACCESS_KEY_ID
                   dvc remote modify supabase-s3 secret_access_key $SUPABASE_S3_SECRET_ACCESS_KEY
-
-            - name: Remove dataset from Git tracking
-              run: |
-                  git rm -r --cached dataset
-                  git commit -m "stop tracking dataset directory to use with DVC"
 
             - name: Pull Data from DVC Remote
               run: |
