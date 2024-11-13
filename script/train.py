@@ -13,9 +13,9 @@ from torchsummary import summary
 from PIL import Image
 
 # Dataset paths (absolute paths to ensure compatibility with CI/CD environment)
-train_dir = os.path.abspath(os.path.join(os.getcwd(), "../dataset/train"))
-val_dir = os.path.abspath(os.path.join(os.getcwd(), "../dataset/val"))
-test_dir = os.path.abspath(os.path.join(os.getcwd(), "../dataset/test"))
+train_dir = "/app/dataset/train"
+val_dir = "/app/dataset/val"
+test_dir = "/app/dataset/test"
 
 # Hyperparameters
 num_epochs = 1
