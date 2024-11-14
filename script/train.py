@@ -10,14 +10,22 @@ import torch.optim as optim
 from torchvision import datasets, models, transforms
 from torch.optim import lr_scheduler
 from torchsummary import summary
+from prometheus_client import Gauge, start_http_server  # Prometheus client for monitoring
 from PIL import Image
-import mlflow
-import mlflow.pytorch
 
-# Dataset paths (absolute paths to ensure compatibility with CI/CD environment)
-train_dir = os.path.abspath(os.path.join(os.getcwd(), "../dataset/train"))
-val_dir = os.path.abspath(os.path.join(os.getcwd(), "../dataset/val"))
-test_dir = os.path.abspath(os.path.join(os.getcwd(), "../dataset/test"))
+# Start Prometheus client server on port 8000
+start_http_server(8000)
+
+# Define Prometheus metrics
+train_loss_metric = Gauge('train_loss', 'Training Loss')
+val_loss_metric = Gauge('val_loss', 'Validation Loss')
+train_accuracy_metric = Gauge('train_accuracy', 'Training Accuracy')
+val_accuracy_metric = Gauge('val_accuracy', 'Validation Accuracy')
+
+# Dataset paths
+train_dir = "/app/dataset/train"
+val_dir = "/app/dataset/val"
+test_dir = "/app/dataset/test"
 
 # Hyperparameters
 num_epochs = 25
@@ -62,15 +70,8 @@ def initialize_model(num_classes):
     model_ft.fc = nn.Linear(num_ftrs, num_classes)
     return model_ft
 
-# Training function
+# Training function with Prometheus metrics
 def train_model(model, criterion, optimizer, scheduler, num_epochs):
-    run = mlflow.start_run()
-    run_id = run.info.run_id
-    os.environ["MLFLOW_RUN_ID"] = run_id
-    mlflow.log_param("num_epochs", num_epochs)
-    mlflow.log_param("batch_size", batch_size)
-    mlflow.log_param("num_classes", num_classes)
-
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
@@ -104,17 +105,20 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
             print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-            mlflow.log_metric(f"{phase}_loss", epoch_loss, step=epoch)
-            mlflow.log_metric(f"{phase}_accuracy", epoch_acc.item(), step=epoch)
+
+            # Update Prometheus metrics
+            if phase == 'train':
+                train_loss_metric.set(epoch_loss)
+                train_accuracy_metric.set(epoch_acc)
+            elif phase == 'val':
+                val_loss_metric.set(epoch_loss)
+                val_accuracy_metric.set(epoch_acc)
 
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
 
     model.load_state_dict(best_model_wts)
-    mlflow.pytorch.log_model(model, "model")
-    mlflow.end_run()
-
     return model
 
 # Main script

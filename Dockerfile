@@ -1,17 +1,23 @@
-# Use an official Python runtime as a parent image
-FROM python:3.8-slim
+FROM python:3.11-slim
 
-# Set the working directory in the container
+# Install git and any other dependencies
+RUN apt-get update && apt-get install -y git
+
+# Set the working directory
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Configure Git to trust the /app directory
+RUN git config --global --add safe.directory /app
+
+# Copy dependency files
+COPY requirements.txt ./
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip \
+    && pip install -r requirements.txt
 
-# Set environment variables for MLflow (optional)
-ENV MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI}
+# Copy the script directory to the container
+COPY script/ /app/script
 
-# Run training script by default (you can specify other entry points if needed)
-CMD ["python", "train.py"]
+# Set default command
+CMD ["python", "/app/script/train.py"]
