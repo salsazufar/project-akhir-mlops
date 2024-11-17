@@ -37,7 +37,7 @@ jobs:
                 ports:
                     - 3000:3000
             mlflow:
-                image: amesar/mlflow:2.7.1
+                image: ghcr.io/mlflow/mlflow:v2.18.0rc0
                 ports:
                   - 5000:5000
 
