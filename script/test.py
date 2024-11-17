@@ -4,6 +4,8 @@ import torch.nn as nn
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from train import initialize_model, device  # Importing from train.py
+import mlflow
+import mlflow.pytorch
 
 # Dataset paths
 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../dataset"))
@@ -39,16 +41,13 @@ model.eval()
 criterion = nn.CrossEntropyLoss()
 
 # Testing function
-def computeTestSetAccuracy(model, criterion, dataloader):
+def compute_test_set_accuracy(model, criterion, dataloader):
     test_acc = 0.0
     test_loss = 0.0
 
-    with torch.no_grad():
-        model.eval()
-
+    with mlflow.start_run():
         for j, (inputs, labels) in enumerate(dataloader):
-            inputs = inputs.to(device)
-            labels = labels.to(device)
+            inputs, labels = inputs.to(device), labels.to(device)
 
             # Forward pass
             outputs = model(inputs)
@@ -65,12 +64,19 @@ def computeTestSetAccuracy(model, criterion, dataloader):
 
             print(f"Test Batch number: {j:03d}, Loss: {loss.item():.4f}, Accuracy: {acc.item():.4f}")
 
-    avg_test_loss = test_loss / dataset_sizes['test']
-    avg_test_acc = test_acc / dataset_sizes['test']
+        avg_test_loss = test_loss / dataset_sizes['test']
+        avg_test_acc = test_acc / dataset_sizes['test']
 
-    print(f"\nTest Loss: {avg_test_loss:.4f}, Test Accuracy: {avg_test_acc:.4f}")
-    return avg_test_loss, avg_test_acc
+        print(f"\nTest Loss: {avg_test_loss:.4f}, Test Accuracy: {avg_test_acc:.4f}")
+
+        # Log metrics to MLflow
+        mlflow.log_metric("test_loss", avg_test_loss)
+        mlflow.log_metric("test_accuracy", avg_test_acc)
+
+        return avg_test_loss, avg_test_acc
 
 # Run the testing phase
 if __name__ == "__main__":
+    mlflow.set_tracking_uri("http://localhost:5000")  
+    mlflow.set_experiment("MLOps_Project-Akhir")
     test_loss, test_accuracy = computeTestSetAccuracy(model, criterion, test_loader)
