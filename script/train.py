@@ -29,7 +29,7 @@ val_dir = os.path.join(base_dir, "val")
 test_dir = os.path.join(base_dir, "test")
 
 # Hyperparameters
-num_epochs = 25
+num_epochs = 1
 batch_size = 4
 num_classes = 4
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
