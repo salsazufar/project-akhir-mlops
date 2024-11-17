@@ -23,9 +23,10 @@ train_accuracy_metric = Gauge('train_accuracy', 'Training Accuracy')
 val_accuracy_metric = Gauge('val_accuracy', 'Validation Accuracy')
 
 # Dataset paths
-train_dir = "/app/dataset/train"
-val_dir = "/app/dataset/val"
-test_dir = "/app/dataset/test"
+base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../dataset"))
+train_dir = os.path.join(base_dir, "train")
+val_dir = os.path.join(base_dir, "val")
+test_dir = os.path.join(base_dir, "test")
 
 # Hyperparameters
 num_epochs = 25
@@ -117,7 +118,8 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-
+    model_save_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../model/best_model_weights.pth"))
+    torch.save(best_model_wts, model_save_path)
     model.load_state_dict(best_model_wts)
     return model
 
