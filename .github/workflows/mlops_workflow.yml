@@ -102,7 +102,10 @@ jobs:
                     python script/train.py &&
                     
                     # Push updated model and dataset changes back to DVC remote
-                    dvc push
+                    dvc push &&
+
+                    # Run the test script
+                    python script/test.py
                   "
 
     # Step 3: Build and Push Final Docker Image with Model
