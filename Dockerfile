@@ -1,3 +1,5 @@
+# Dockerfile
+
 # Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
@@ -13,8 +15,9 @@ RUN git config --global --add safe.directory /app
 # Copy only the requirements file first to leverage Docker cache
 COPY requirements.txt .
 
-# Upgrade pip and install Python dependencies
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Upgrade pip and install Python dependencies with increased timeout and retries
+RUN pip install --upgrade pip
+RUN pip install --timeout=1200 --retries=5 -r requirements.txt
 
 # Copy the rest of the application code
 COPY script/ /app/script
