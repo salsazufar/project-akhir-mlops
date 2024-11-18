@@ -134,7 +134,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
 # Main script
 if __name__ == "__main__":
     # Start MLflow tracking
-    mlflow.set_tracking_uri("http://localhost:5000")  
+    mlflow.set_tracking_uri("http://mlflow:5000")  
     mlflow.set_experiment("MLOps_Project-Akhir")
     model = initialize_model(num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
