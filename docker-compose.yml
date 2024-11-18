@@ -1,0 +1,139 @@
+services:
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: train
+    ports:
+      - "8000:8000"  # Prometheus metrics
+    volumes:
+      - .:/app
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro  # Access to container logs
+      - /var/log:/var/log:ro
+      - ./wait-for-it.sh:/wait-for-it.sh  # Added wait-for-it script
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+      - loki
+      - mlflow
+    entrypoint: ["./wait-for-it.sh", "mlflow:5000", "--timeout=60", "--", "python", "/app/script/train.py"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    networks:
+      - monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/plugins:/var/lib/grafana/plugins  # Optional: Mount plugins if needed
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=false  # Ensure anonymous access is disabled
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  loki:
+    image: grafana/loki:2.7.1
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:2.7.1
+    container_name: promtail
+    volumes:
+      - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - ./wait-for-it.sh:/wait-for-it.sh  # Added wait-for-it script
+    command: ["./wait-for-it.sh", "loki:3100", "--timeout=60", "--", "-config.file=/etc/promtail/promtail-config.yaml"]
+    networks:
+      - monitoring
+    depends_on:
+      - loki
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlflow:/mlflow
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  loki_data:
+  mlflow:
+
+networks:
+  monitoring:
+    driver: bridge

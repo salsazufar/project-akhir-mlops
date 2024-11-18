@@ -1,7 +1,10 @@
+# Dockerfile
+
+# Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
-# Install git and any other dependencies
-RUN apt-get update && apt-get install -y git
+# Install system dependencies
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
@@ -9,15 +12,18 @@ WORKDIR /app
 # Configure Git to trust the /app directory
 RUN git config --global --add safe.directory /app
 
-# Copy dependency files
-COPY requirements.txt ./
+# Copy only the requirements file first to leverage Docker cache
+COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+# Upgrade pip and install Python dependencies with increased timeout and retries
+RUN pip install --upgrade pip
+RUN pip install --timeout=1200 --retries=5 -r requirements.txt
 
-# Copy the script directory to the container
+# Copy the rest of the application code
 COPY script/ /app/script
 
-# Set default command
+# Expose Prometheus metrics port
+EXPOSE 8000
+
+# Set the default command to run your training script
 CMD ["python", "/app/script/train.py"]
