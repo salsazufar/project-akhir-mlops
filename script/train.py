@@ -1,34 +1,20 @@
 import os
-import time
 import copy
 import torch
 import torchvision
-import numpy as np
 import torch.utils.data as data
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, models, transforms
 from torch.optim import lr_scheduler
-from torchsummary import summary
-from prometheus_client import Gauge, start_http_server  # Prometheus client for monitoring
-from PIL import Image
+from mlflow import log_metric, log_param, start_run
 import mlflow
-import mlflow.pytorch
 
-# Start Prometheus client server on port 8000
-start_http_server(8000)
+# MLflow Tracking URI
+MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow/#/"
+os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv("MLFLOW_TRACKING_USERNAME")
+os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv("MLFLOW_TRACKING_PASSWORD")
 
-# Define Prometheus metrics
-train_loss_metric = Gauge('train_loss', 'Training Loss')
-val_loss_metric = Gauge('val_loss', 'Validation Loss')
-train_accuracy_metric = Gauge('train_accuracy', 'Training Accuracy')
-val_accuracy_metric = Gauge('val_accuracy', 'Validation Accuracy')
-
-# Dataset paths
-base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../dataset"))
-train_dir = os.path.join(base_dir, "train")
-val_dir = os.path.join(base_dir, "val")
-test_dir = os.path.join(base_dir, "test")
 
 # Hyperparameters
 num_epochs = 1
@@ -52,17 +38,20 @@ data_transforms = {
     ]),
 }
 
+# Dataset paths
+base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../dataset"))
+train_dir = os.path.join(base_dir, "train")
+val_dir = os.path.join(base_dir, "val")
+
 # Load datasets
 datasets = {
     'train': datasets.ImageFolder(train_dir, data_transforms['train']),
     'val': datasets.ImageFolder(val_dir, data_transforms['val'])
 }
-
 dataloaders = {
     'train': data.DataLoader(datasets['train'], batch_size=batch_size, shuffle=True, num_workers=4),
     'val': data.DataLoader(datasets['val'], batch_size=batch_size, shuffle=False, num_workers=4)
 }
-
 dataset_sizes = {x: len(datasets[x]) for x in ['train', 'val']}
 class_names = datasets['train'].classes
 
@@ -73,14 +62,18 @@ def initialize_model(num_classes):
     model_ft.fc = nn.Linear(num_ftrs, num_classes)
     return model_ft
 
-# Training function with Prometheus metrics
+# Training function
 def train_model(model, criterion, optimizer, scheduler, num_epochs):
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-    with mlflow.start_run():
-        mlflow.log_param("num_epochs", num_epochs)
-        mlflow.log_param("batch_size", batch_size)
-        mlflow.log_param("learning_rate", optimizer.param_groups[0]['lr'])
+
+    # Start MLflow experiment
+    with start_run():
+        # Log parameters
+        log_param("learning_rate", optimizer.param_groups[0]['lr'])
+        log_param("batch_size", batch_size)
+        log_param("num_epochs", num_epochs)
+
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')
             print('-' * 10)
@@ -112,30 +105,19 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
 
                 print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
 
-                # Update Prometheus metrics
-                if phase == 'train':
-                    train_loss_metric.set(epoch_loss)
-                    train_accuracy_metric.set(epoch_acc)
-                elif phase == 'val':
-                    val_loss_metric.set(epoch_loss)
-                    val_accuracy_metric.set(epoch_acc)
+                # Log metrics
+                log_metric(f"{phase}_loss", epoch_loss, step=epoch)
+                log_metric(f"{phase}_accuracy", epoch_acc, step=epoch)
 
                 if phase == 'val' and epoch_acc > best_acc:
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
 
-    model_save_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../model/best_model_weights.pth"))
-    torch.save(best_model_wts, model_save_path)
     model.load_state_dict(best_model_wts)
-    # Log the final model to MLFlow
-    mlflow.pytorch.log_model(model, "model")
     return model
 
 # Main script
 if __name__ == "__main__":
-    # Start MLflow tracking
-    mlflow.set_tracking_uri("http://mlflow:5000")  
-    mlflow.set_experiment("MLOps_Project-Akhir")
     model = initialize_model(num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)

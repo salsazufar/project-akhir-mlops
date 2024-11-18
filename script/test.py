@@ -6,6 +6,12 @@ from torch.utils.data import DataLoader
 from train import initialize_model, device  # Importing from train.py
 import mlflow
 import mlflow.pytorch
+from mlflow import log_metric, start_run
+
+# MLflow Tracking URI
+MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow/#/"
+os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv("MLFLOW_TRACKING_USERNAME")
+os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv("MLFLOW_TRACKING_PASSWORD")
 
 # Dataset paths
 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../dataset"))
@@ -40,43 +46,36 @@ model.eval()
 # Define the loss criterion
 criterion = nn.CrossEntropyLoss()
 
-# Testing function
-def compute_test_set_accuracy(model, criterion, dataloader):
-    test_acc = 0.0
-    test_loss = 0.0
+# Test the model with MLflow logging
+def computeTestSetAccuracy(model, criterion, dataloader):
+    test_loss, test_corrects = 0.0, 0
 
-    with mlflow.start_run():
-        for j, (inputs, labels) in enumerate(dataloader):
-            inputs, labels = inputs.to(device), labels.to(device)
+    with start_run():  # Start an MLflow run
+        with torch.no_grad():
+            for inputs, labels in dataloader:
+                inputs, labels = inputs.to(device), labels.to(device)
+                outputs = model(inputs)
 
-            # Forward pass
-            outputs = model(inputs)
+                # Compute loss
+                loss = criterion(outputs, labels)
+                test_loss += loss.item() * inputs.size(0)
 
-            # Compute loss
-            loss = criterion(outputs, labels)
-            test_loss += loss.item() * inputs.size(0)
+                # Compute accuracy
+                _, predictions = torch.max(outputs, 1)
+                test_corrects += torch.sum(predictions == labels.data)
 
-            # Compute accuracy
-            _, predictions = torch.max(outputs.data, 1)
-            correct_counts = predictions.eq(labels.data.view_as(predictions))
-            acc = torch.mean(correct_counts.type(torch.FloatTensor))
-            test_acc += acc.item() * inputs.size(0)
-
-            print(f"Test Batch number: {j:03d}, Loss: {loss.item():.4f}, Accuracy: {acc.item():.4f}")
-
-        avg_test_loss = test_loss / dataset_sizes['test']
-        avg_test_acc = test_acc / dataset_sizes['test']
-
-        print(f"\nTest Loss: {avg_test_loss:.4f}, Test Accuracy: {avg_test_acc:.4f}")
+        # Calculate average loss and accuracy
+        avg_loss = test_loss / len(dataloader.dataset)
+        avg_accuracy = test_corrects.double() / len(dataloader.dataset)
 
         # Log metrics to MLflow
-        mlflow.log_metric("test_loss", avg_test_loss)
-        mlflow.log_metric("test_accuracy", avg_test_acc)
+        log_metric("test_loss", avg_loss)
+        log_metric("test_accuracy", avg_accuracy)
 
-        return avg_test_loss, avg_test_acc
+        # Print results
+        print(f"Test Loss: {avg_loss:.4f}, Test Accuracy: {avg_accuracy:.4f}")
+
 
 # Run the testing phase
 if __name__ == "__main__":
-    mlflow.set_tracking_uri("http://localhost:5000")  
-    mlflow.set_experiment("MLOps_Project-Akhir")
     test_loss, test_accuracy = computeTestSetAccuracy(model, criterion, test_loader)
