@@ -9,7 +9,7 @@ import mlflow.pytorch
 from mlflow import log_metric, start_run
 
 # MLflow Tracking URI
-MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow/#/"
+MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow"
 os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv('DAGSHUB_USERNAME')
 os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv('DAGSHUB_TOKEN')
 
@@ -74,6 +74,9 @@ def computeTestSetAccuracy(model, criterion, dataloader):
 
         # Print results
         print(f"Test Loss: {avg_loss:.4f}, Test Accuracy: {avg_accuracy:.4f}")
+
+        # Return loss and accuracy
+        return avg_loss, avg_accuracy
 
 
 # Run the testing phase
