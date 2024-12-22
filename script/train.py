@@ -7,8 +7,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, models, transforms
 from torch.optim import lr_scheduler
-from mlflow import log_metric, log_param, start_run
 import mlflow
+import mlflow.pytorch
 
 # MLflow Tracking URI
 MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow"
@@ -16,12 +16,18 @@ mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv('DAGSHUB_USERNAME')
 os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv('DAGSHUB_TOKEN')
 
-
 # Hyperparameters
 num_epochs = 1
 batch_size = 4
+learning_rate = 0.001
+momentum = 0.9
+scheduler_step_size = 7
+scheduler_gamma = 0.1
 num_classes = 4
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+# Accuracy threshold for model registry
+accuracy_threshold = 0.8  
 
 # Data transformation
 data_transforms = {
@@ -67,12 +73,15 @@ def initialize_model(num_classes):
 def train_model(model, criterion, optimizer, scheduler, num_epochs):
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-    # Start MLflow experiment
-    with start_run():
-        # Log parameters
-        log_param("learning_rate", optimizer.param_groups[0]['lr'])
-        log_param("batch_size", batch_size)
-        log_param("num_epochs", num_epochs)
+
+    with mlflow.start_run():
+        # Log hyperparameters
+        mlflow.log_param("batch_size", batch_size)
+        mlflow.log_param("learning_rate", learning_rate)
+        mlflow.log_param("momentum", momentum)
+        mlflow.log_param("scheduler_step_size", scheduler_step_size)
+        mlflow.log_param("scheduler_gamma", scheduler_gamma)
+        mlflow.log_param("num_epochs", num_epochs)
 
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')
@@ -105,20 +114,39 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
 
                 print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
 
-                # Log metrics
-                log_metric(f"{phase}_loss", epoch_loss, step=epoch)
-                log_metric(f"{phase}_accuracy", epoch_acc, step=epoch)
+                # Log metrics for each epoch
+                mlflow.log_metric(f"{phase}_loss", epoch_loss, step=epoch)
+                mlflow.log_metric(f"{phase}_accuracy", epoch_acc, step=epoch)
+
+                # Save best model weights
                 if phase == 'val' and epoch_acc > best_acc:
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
 
-    model.load_state_dict(best_model_wts)
+        # Save the best model
+        model.load_state_dict(best_model_wts)
+
+        # Log the best model to MLflow
+        mlflow.pytorch.log_model(model, "best_model")
+
+        # Perform Model Registry if accuracy threshold is met
+        if best_acc >= accuracy_threshold:
+            print(f"Model meets accuracy threshold ({accuracy_threshold * 100}%). Registering model...")
+            result = mlflow.register_model(
+                f"runs:/{mlflow.active_run().info.run_id}/best_model",
+                "ProjectAkhirModelRegistry"
+            )
+            print(f"Model registered with name: {result.name}, version: {result.version}")
+        else:
+            print(f"Model accuracy {best_acc:.4f} did not meet threshold ({accuracy_threshold * 100}%).")
+
     return model
 
 # Main script
 if __name__ == "__main__":
     model = initialize_model(num_classes).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=scheduler_step_size, gamma=scheduler_gamma)
+
     model = train_model(model, criterion, optimizer, exp_lr_scheduler, num_epochs)

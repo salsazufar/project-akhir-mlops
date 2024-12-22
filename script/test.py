@@ -6,10 +6,11 @@ from torch.utils.data import DataLoader
 from train import initialize_model, device  # Importing from train.py
 import mlflow
 import mlflow.pytorch
-from mlflow import log_metric, start_run
+from mlflow import log_metric, log_param, start_run
 
 # MLflow Tracking URI
 MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow"
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv('DAGSHUB_USERNAME')
 os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv('DAGSHUB_TOKEN')
 
@@ -40,7 +41,7 @@ model = initialize_model(num_classes).to(device)
 # Load the saved best model weights
 model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../model/best_model_weights.pth"))
 assert os.path.exists(model_path), f"Model weights file not found: {model_path}"
-model.load_state_dict(torch.load(model_path, weights_only=True))
+model.load_state_dict(torch.load(model_path))
 model.eval()
 
 # Define the loss criterion
@@ -51,6 +52,11 @@ def computeTestSetAccuracy(model, criterion, dataloader):
     test_loss, test_corrects = 0.0, 0
 
     with start_run():  # Start an MLflow run
+        # Log testing parameters (to match training phase logs)
+        mlflow.log_param("phase", "test")
+        mlflow.log_param("batch_size", dataloader.batch_size)
+        mlflow.log_param("dataset_size", len(dataloader.dataset))
+
         with torch.no_grad():
             for inputs, labels in dataloader:
                 inputs, labels = inputs.to(device), labels.to(device)
@@ -69,8 +75,8 @@ def computeTestSetAccuracy(model, criterion, dataloader):
         avg_accuracy = test_corrects.double() / len(dataloader.dataset)
 
         # Log metrics to MLflow
-        log_metric("test_loss", avg_loss)
-        log_metric("test_accuracy", avg_accuracy)
+        mlflow.log_metric("test_loss", avg_loss)
+        mlflow.log_metric("test_accuracy", avg_accuracy)
 
         # Print results
         print(f"Test Loss: {avg_loss:.4f}, Test Accuracy: {avg_accuracy:.4f}")
