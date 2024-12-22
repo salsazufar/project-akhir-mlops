@@ -66,7 +66,8 @@ jobs:
                   SUPABASE_S3_REGION: ${{ secrets.SUPABASE_S3_REGION }}
                   SUPABASE_S3_ACCESS_KEY_ID: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
                   SUPABASE_S3_SECRET_ACCESS_KEY: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
-                  MLFLOW_TRACKING_URI: http://localhost:5000
+                  DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+                  DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
               run: |
                   # Pull the Docker dependency image with retry mechanism to avoid temporary network issues
                   n=0

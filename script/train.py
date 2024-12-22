@@ -11,7 +11,8 @@ from mlflow import log_metric, log_param, start_run
 import mlflow
 
 # MLflow Tracking URI
-MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow/#/"
+MLFLOW_TRACKING_URI = "https://dagshub.com/salsazufar/project-akhir-mlops.mlflow"
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv('DAGSHUB_USERNAME')
 os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv('DAGSHUB_TOKEN')
 
@@ -66,7 +67,6 @@ def initialize_model(num_classes):
 def train_model(model, criterion, optimizer, scheduler, num_epochs):
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
-
     # Start MLflow experiment
     with start_run():
         # Log parameters
@@ -108,7 +108,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
                 # Log metrics
                 log_metric(f"{phase}_loss", epoch_loss, step=epoch)
                 log_metric(f"{phase}_accuracy", epoch_acc, step=epoch)
-
                 if phase == 'val' and epoch_acc > best_acc:
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
