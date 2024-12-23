@@ -7,6 +7,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, models, transforms
 from torch.optim import lr_scheduler
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 import mlflow
 import mlflow.pytorch
 
@@ -17,7 +20,7 @@ os.environ['MLFLOW_TRACKING_USERNAME'] = os.getenv('DAGSHUB_USERNAME')
 os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv('DAGSHUB_TOKEN')
 
 # Hyperparameters
-num_epochs = 1
+num_epochs = 3
 batch_size = 4
 learning_rate = 0.001
 momentum = 0.9
@@ -68,6 +71,36 @@ def initialize_model(num_classes):
     num_ftrs = model_ft.fc.in_features
     model_ft.fc = nn.Linear(num_ftrs, num_classes)
     return model_ft
+
+# Function to log confusion matrix as an artifact
+def log_confusion_matrix(model, dataloader, class_names):
+    y_true, y_pred = [], []
+
+    # Switch to evaluation mode
+    model.eval()
+    with torch.no_grad():
+        for inputs, labels in dataloader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            _, preds = torch.max(outputs, 1)
+            y_true.extend(labels.cpu().numpy())
+            y_pred.extend(preds.cpu().numpy())
+
+    # Generate confusion matrix
+    cm = confusion_matrix(y_true, y_pred, labels=range(len(class_names)))
+    plt.figure(figsize=(10, 7))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel("Predicted Labels")
+    plt.ylabel("True Labels")
+    plt.title("Confusion Matrix")
+
+    # Save confusion matrix as a PNG file
+    confusion_matrix_path = "confusion_matrix.png"
+    plt.savefig(confusion_matrix_path)
+    plt.close()
+
+    # Log the confusion matrix image as an artifact in MLflow
+    mlflow.log_artifact(confusion_matrix_path)
 
 # Training function
 def train_model(model, criterion, optimizer, scheduler, num_epochs):
@@ -139,6 +172,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs):
             print(f"Model registered with name: {result.name}, version: {result.version}")
         else:
             print(f"Model accuracy {best_acc:.4f} did not meet threshold ({accuracy_threshold * 100}%).")
+
+        # Log confusion matrix for validation data
+        log_confusion_matrix(model, dataloaders['val'], class_names)
 
     return model
 

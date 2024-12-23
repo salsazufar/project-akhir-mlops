@@ -4,6 +4,9 @@ import torch.nn as nn
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from train import initialize_model, device  # Importing from train.py
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 import mlflow
 import mlflow.pytorch
 from mlflow import log_metric, log_param, start_run
@@ -47,9 +50,27 @@ model.eval()
 # Define the loss criterion
 criterion = nn.CrossEntropyLoss()
 
+# Function to log confusion matrix as an artifact
+def log_confusion_matrix(y_true, y_pred, class_names):
+    cm = confusion_matrix(y_true, y_pred)
+    plt.figure(figsize=(10, 7))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel("Predicted Labels")
+    plt.ylabel("True Labels")
+    plt.title("Confusion Matrix")
+
+    # Save confusion matrix as a PNG file
+    confusion_matrix_path = "confusion_matrix.png"
+    plt.savefig(confusion_matrix_path)
+    plt.close()
+
+    # Log the confusion matrix image as an artifact in MLflow
+    mlflow.log_artifact(confusion_matrix_path)
+
 # Test the model with MLflow logging
-def computeTestSetAccuracy(model, criterion, dataloader):
+def computeTestSetAccuracyAndLogConfusionMatrix(model, criterion, dataloader, class_names):
     test_loss, test_corrects = 0.0, 0
+    y_true, y_pred = [], []
 
     with start_run():  # Start an MLflow run
         # Log testing parameters (to match training phase logs)
@@ -66,9 +87,13 @@ def computeTestSetAccuracy(model, criterion, dataloader):
                 loss = criterion(outputs, labels)
                 test_loss += loss.item() * inputs.size(0)
 
-                # Compute accuracy
+                # Compute predictions and collect true/false labels
                 _, predictions = torch.max(outputs, 1)
                 test_corrects += torch.sum(predictions == labels.data)
+
+                # Collect all labels and predictions
+                y_true.extend(labels.cpu().numpy())
+                y_pred.extend(predictions.cpu().numpy())
 
         # Calculate average loss and accuracy
         avg_loss = test_loss / len(dataloader.dataset)
@@ -77,6 +102,9 @@ def computeTestSetAccuracy(model, criterion, dataloader):
         # Log metrics to MLflow
         mlflow.log_metric("test_loss", avg_loss)
         mlflow.log_metric("test_accuracy", avg_accuracy)
+
+        # Log confusion matrix as an artifact
+        log_confusion_matrix(y_true, y_pred, class_names)
 
         # Print results
         print(f"Test Loss: {avg_loss:.4f}, Test Accuracy: {avg_accuracy:.4f}")
@@ -87,4 +115,6 @@ def computeTestSetAccuracy(model, criterion, dataloader):
 
 # Run the testing phase
 if __name__ == "__main__":
-    test_loss, test_accuracy = computeTestSetAccuracy(model, criterion, test_loader)
+    test_loss, test_accuracy = computeTestSetAccuracyAndLogConfusionMatrix(
+        model, criterion, test_loader, test_dataset.classes
+    )
