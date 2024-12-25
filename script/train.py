@@ -231,8 +231,8 @@ def send_log_to_loki(log_message, log_level="info", labels=None, numeric_values=
         print(f"Error sending log to Loki: {e}")
         return False
 
-# Supabase configuration
-supabase: Client = create_client(
+# Inisialisasi supabase client
+supabase = create_client(
     os.environ.get("SUPABASE_URL", ""),
     os.environ.get("SUPABASE_KEY", "")
 )
