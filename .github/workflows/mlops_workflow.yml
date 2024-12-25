@@ -663,7 +663,8 @@ jobs:
                       bash -c "
                           echo 'Installing additional dependencies...' &&
                           apt-get update && apt-get install -y protobuf-compiler &&
-                          pip install 'supabase==2.3.0' 'protobuf==3.20.3' python-snappy &&
+                          pip uninstall -y supabase &&
+                          pip install --no-cache-dir 'supabase==1.0.3' 'protobuf==3.20.3' python-snappy &&
                           
                           # Setup Prometheus proto file
                           cd script &&
