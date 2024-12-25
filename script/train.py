@@ -150,60 +150,48 @@ def log_confusion_matrix(model, dataloader, class_names):
     # Log the confusion matrix image as an artifact in MLflow
     mlflow.log_artifact(confusion_matrix_path)
 
-def send_metric_to_prometheus(metric_name, value, labels=None):
-    if labels is None:
-        labels = {}
-        
-    timestamp_ms = int(time.time() * 1000)
-    
-    # Inisialisasi WriteRequest
-    write_req = WriteRequest()
-    ts = write_req.timeseries.add()
-    
-    # Tambahkan labels wajib
-    base_labels = [
-        ("__name__", metric_name),
-        ("job", "mlops_training"),
-        ("environment", "github_actions")
-    ]
-    
-    # Tambahkan custom labels
-    all_labels = base_labels + list(labels.items())
-    
-    for name, value in all_labels:
-        label = ts.labels.add()
-        label.name = name
-        label.value = str(value)
-    
-    # Tambahkan sample
-    sample = ts.samples.add()
-    sample.value = float(value)
-    sample.timestamp = timestamp_ms
-    
-    # Serialize dan kompres data
-    data = write_req.SerializeToString()
-    compressed_data = python_snappy.compress(data)
-    
-    # Kirim ke Prometheus
+# Fungsi untuk mengirim metrik ke Prometheus dengan lebih sederhana
+def send_metric_to_prometheus(metric_name, value):
+    """
+    Fungsi sederhana untuk mengirim metrik ke Prometheus
+    Args:
+        metric_name (str): Nama metrik (train_loss, train_accuracy, val_loss, val_accuracy)
+        value (float): Nilai metrik
+    """
     try:
+        timestamp_ms = int(time.time() * 1000)
+        
+        # Format data metrik
+        metric_data = {
+            "series": [{
+                "labels": {
+                    "__name__": metric_name,
+                    "job": "mlops_training",
+                    "environment": "github_actions"
+                },
+                "samples": [
+                    [timestamp_ms, float(value)]
+                ]
+            }]
+        }
+        
+        # Kirim ke Prometheus
         response = requests.post(
-            os.environ['PROMETHEUS_REMOTE_WRITE_URL'],
-            data=compressed_data,
-            auth=(os.environ['PROMETHEUS_USERNAME'], os.environ['PROMETHEUS_API_KEY']),
+            os.environ.get('PROMETHEUS_REMOTE_WRITE_URL'),
+            json=metric_data,
+            auth=(os.environ.get('PROMETHEUS_USERNAME'), os.environ.get('PROMETHEUS_API_KEY')),
             headers={
-                "Content-Encoding": "snappy",
-                "Content-Type": "application/x-protobuf",
-                "X-Prometheus-Remote-Write-Version": "0.1.0"
+                'Content-Type': 'application/json',
+                'X-Scope-OrgID': os.environ.get('PROMETHEUS_USERNAME')
             }
         )
-        if response.status_code in [200, 204]:
-            print(f"✅ Metric {metric_name} sent successfully")
-            return True
-        else:
-            print(f"❌ Failed to send metric {metric_name}: {response.text}")
+        
+        if response.status_code not in [200, 204]:
+            print(f"⚠️ Error mengirim metrik {metric_name}: {response.text}")
             return False
+        return True
     except Exception as e:
-        print(f"❌ Error sending metric {metric_name}: {e}")
+        print(f"⚠️ Error mengirim metrik {metric_name}: {str(e)}")
         return False
 
 def send_log_to_loki(log_message, log_level="info", labels=None, numeric_values=None):
@@ -253,7 +241,7 @@ def send_log_to_loki(log_message, log_level="info", labels=None, numeric_values=
         print(f"Error sending log to Loki: {e}")
         return False
 
-# Inisialisasi supabase client dengan error handling yang lebih baik
+# Inisialisasi Supabase client tanpa proxy
 try:
     # Dapatkan credentials
     supabase_url = os.environ.get("SUPABASE_URL")
@@ -265,6 +253,7 @@ try:
         supabase = None
     else:
         print(f"🔄 Mencoba menghubungkan ke Supabase...")
+        # Inisialisasi tanpa opsi tambahan
         supabase = create_client(supabase_url, supabase_key)
         print("✅ Berhasil terhubung ke Supabase")
 except Exception as e:
@@ -369,6 +358,12 @@ def send_batch_metrics_to_loki(batch_metrics, phase="train", level="info"):
         print(f"Error sending batch metrics: {e}")
         return False
 
+def calculate_moving_average(buffer, window_size=5):
+    """Hitung moving average dari buffer"""
+    if len(buffer) < window_size:
+        return sum(buffer) / len(buffer)
+    return sum(buffer[-window_size:]) / window_size
+
 # Training function
 def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs, device):
     best_val_loss = float('inf')
@@ -426,23 +421,13 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
                         
                         # Kirim moving average setiap window_size batch
                         if len(train_loss_buffer) >= window_size:
-                            avg_train_loss = sum(train_loss_buffer[-window_size:]) / window_size
-                            avg_train_acc = sum(train_acc_buffer[-window_size:]) / window_size
+                            # Hitung moving average
+                            avg_train_loss = calculate_moving_average(train_loss_buffer, window_size)
+                            avg_train_acc = calculate_moving_average(train_acc_buffer, window_size)
                             
-                            try:
-                                # Kirim ke Prometheus
-                                send_metric_to_prometheus(
-                                    "train_loss",
-                                    avg_train_loss,
-                                    {"type": "moving_average"}
-                                )
-                                send_metric_to_prometheus(
-                                    "train_accuracy",
-                                    avg_train_acc,
-                                    {"type": "moving_average"}
-                                )
-                            except Exception as e:
-                                print(f"⚠️ Error mengirim metrik ke Prometheus: {str(e)}")
+                            # Kirim metrik ke Prometheus
+                            send_metric_to_prometheus("train_loss", avg_train_loss)
+                            send_metric_to_prometheus("train_accuracy", avg_train_acc)
                             
                             print(f"Batch {i+1}/{train_batches} - Moving Avg Loss: {avg_train_loss:.4f} - Acc: {avg_train_acc:.2f}%")
                     
@@ -476,6 +461,19 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
                             val_loss += batch_loss
                             val_correct += batch_correct
                             val_total += batch_total
+                            
+                            # Tambahkan ke buffer validasi
+                            val_loss_buffer.append(batch_loss)
+                            val_acc_buffer.append(100 * batch_correct / batch_total)
+                            
+                            # Kirim moving average setiap window_size batch
+                            if len(val_loss_buffer) >= window_size:
+                                avg_val_loss = calculate_moving_average(val_loss_buffer, window_size)
+                                avg_val_acc = calculate_moving_average(val_acc_buffer, window_size)
+                                
+                                # Kirim metrik ke Prometheus
+                                send_metric_to_prometheus("val_loss", avg_val_loss)
+                                send_metric_to_prometheus("val_accuracy", avg_val_acc)
                             
                         except Exception as val_batch_error:
                             print(f"⚠️ Error pada validation batch {i+1}: {str(val_batch_error)}")
