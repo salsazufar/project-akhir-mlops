@@ -1,29 +1,55 @@
-# Dockerfile
-
 # Use an official Python runtime as a parent image
-FROM python:3.11-slim
+FROM python:3.8-slim
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    gcc \
+    g++ \
+    python3-dev \
+    libsnappy-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
 
-# Configure Git to trust the /app directory
-RUN git config --global --add safe.directory /app
-
-# Copy only the requirements file first to leverage Docker cache
+# Copy requirements file
 COPY requirements.txt .
 
-# Upgrade pip and install Python dependencies with increased timeout and retries
-RUN pip install --upgrade pip
-RUN pip install --timeout=1200 --retries=5 -r requirements.txt
+# Install Python dependencies with specific flags
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
-COPY script/ /app/script
+# Install PyTorch dependencies
+RUN pip install --no-cache-dir \
+    torch \
+    torchvision \
+    --index-url https://download.pytorch.org/whl/cpu
 
-# Expose Prometheus metrics port
+# Install other dependencies
+RUN pip install --no-cache-dir \
+    supabase==2.3.0 \
+    matplotlib \
+    seaborn \
+    scikit-learn \
+    pandas \
+    numpy \
+    mlflow \
+    python-snappy \
+    prometheus-client \
+    requests \
+    protobuf \
+    dvclive
+
+# Copy the rest of the application
+COPY . .
+
+# Make port 8000 available for Prometheus metrics
 EXPOSE 8000
 
-# Set the default command to run your training script
-CMD ["python", "/app/script/train.py"]
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DEFAULT_TIMEOUT=100
+
+# Default command
+CMD ["python", "script/train.py"]
