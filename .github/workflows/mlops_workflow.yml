@@ -662,6 +662,7 @@ jobs:
                       ${{ secrets.DOCKER_USERNAME }}/mlops_dependencies:latest \
                       bash -c "
                           echo 'Installing additional dependencies...' &&
+                          apt-get update && apt-get install -y protobuf-compiler &&
                           pip install 'supabase==2.3.0' 'protobuf==3.20.3' python-snappy &&
                           
                           # Setup Prometheus proto file
