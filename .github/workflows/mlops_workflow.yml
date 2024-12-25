@@ -627,16 +627,6 @@ jobs:
 
                   protoc --python_out=script/ remote_write.proto
 
-            - name: Install Python packages
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install prometheus-client requests python-snappy
-                  pip install protobuf==3.20.0  # Menggunakan versi yang kompatibel
-
-            - name: Set Protobuf environment
-              run: |
-                  echo "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python" >> $GITHUB_ENV
-
             - name: Train and Evaluate Model
               env:
                   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
