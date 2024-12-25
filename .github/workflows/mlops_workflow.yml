@@ -637,7 +637,7 @@ jobs:
                   MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
                   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
                   SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-                  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: "python" # Tambahkan ini untuk mengatasi masalah protobuf
+                  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: "python"
               run: |
                   docker run \
                       -e DOCKER_USERNAME="$DOCKER_USERNAME" \
@@ -662,7 +662,33 @@ jobs:
                       ${{ secrets.DOCKER_USERNAME }}/mlops_dependencies:latest \
                       bash -c "
                           echo 'Installing additional dependencies...' &&
-                          pip install 'supabase==2.3.0' 'protobuf==3.20.3' &&
+                          pip install 'supabase==2.3.0' 'protobuf==3.20.3' python-snappy &&
+                          
+                          # Setup Prometheus proto file
+                          cd script &&
+                          echo 'syntax = \"proto3\";
+                          package prometheus;
+                          option go_package = \"prompb\";
+                          message WriteRequest {
+                              repeated TimeSeries timeseries = 1;
+                          }
+                          message TimeSeries {
+                              repeated Label labels = 1;
+                              repeated Sample samples = 2;
+                          }
+                          message Label {
+                              string name = 1;
+                              string value = 2;
+                          }
+                          message Sample {
+                              double value = 1;
+                              int64 timestamp = 2;
+                          }' > remote_write.proto &&
+                          
+                          # Generate Python file dari proto
+                          protoc --python_out=. remote_write.proto &&
+                          cd .. &&
+                          
                           echo 'Starting training...' &&
                           python script/train.py &&
                           python script/test.py

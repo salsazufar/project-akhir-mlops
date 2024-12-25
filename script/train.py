@@ -150,10 +150,10 @@ def log_confusion_matrix(model, dataloader, class_names):
     # Log the confusion matrix image as an artifact in MLflow
     mlflow.log_artifact(confusion_matrix_path)
 
-# Fungsi untuk mengirim metrik ke Prometheus dengan lebih sederhana
+# Fungsi untuk mengirim metrik ke Prometheus dengan format protobuf
 def send_metric_to_prometheus(metric_name, value):
     """
-    Fungsi sederhana untuk mengirim metrik ke Prometheus
+    Fungsi untuk mengirim metrik ke Prometheus menggunakan protobuf
     Args:
         metric_name (str): Nama metrik (train_loss, train_accuracy, val_loss, val_accuracy)
         value (float): Nilai metrik
@@ -161,34 +161,47 @@ def send_metric_to_prometheus(metric_name, value):
     try:
         timestamp_ms = int(time.time() * 1000)
         
-        # Format data metrik
-        metric_data = {
-            "series": [{
-                "labels": {
-                    "__name__": metric_name,
-                    "job": "mlops_training",
-                    "environment": "github_actions"
-                },
-                "samples": [
-                    [timestamp_ms, float(value)]
-                ]
-            }]
-        }
+        # Buat WriteRequest protobuf
+        write_req = WriteRequest()
+        ts = write_req.timeseries.add()
+        
+        # Tambahkan labels
+        labels = [
+            ("__name__", metric_name),
+            ("job", "mlops_training"),
+            ("environment", "github_actions")
+        ]
+        
+        for name, value_label in labels:
+            label = ts.labels.add()
+            label.name = name
+            label.value = str(value_label)
+        
+        # Tambahkan sample
+        sample = ts.samples.add()
+        sample.value = float(value)
+        sample.timestamp = timestamp_ms
+        
+        # Serialize dan kompres data
+        data = write_req.SerializeToString()
+        compressed_data = python_snappy.compress(data)
         
         # Kirim ke Prometheus
         response = requests.post(
             os.environ.get('PROMETHEUS_REMOTE_WRITE_URL'),
-            json=metric_data,
+            data=compressed_data,
             auth=(os.environ.get('PROMETHEUS_USERNAME'), os.environ.get('PROMETHEUS_API_KEY')),
             headers={
-                'Content-Type': 'application/json',
-                'X-Scope-OrgID': os.environ.get('PROMETHEUS_USERNAME')
+                "Content-Encoding": "snappy",
+                "Content-Type": "application/x-protobuf",
+                "X-Prometheus-Remote-Write-Version": "0.1.0"
             }
         )
         
         if response.status_code not in [200, 204]:
             print(f"⚠️ Error mengirim metrik {metric_name}: {response.text}")
             return False
+            
         return True
     except Exception as e:
         print(f"⚠️ Error mengirim metrik {metric_name}: {str(e)}")
