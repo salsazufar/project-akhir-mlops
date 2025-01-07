@@ -1,20 +1,11 @@
-numpy
-torch
-torchvision
-tensorboardX
-pillow
-matplotlib
-mlflow==2.17.2
-grafana-client
-torchsummary
-dvc[s3]
-distro
-cycler
-contourpy
-boto3          # Updated version
-s3transfer      # Updated version
-botocore       # Updated version
-six
-python-dateutil
-prometheus_client
-seaborn
+fastapi==0.109.0
+uvicorn==0.25.0
+Pillow==10.1.0
+supabase==2.3.0
+python-dotenv==1.0.0
+python-multipart==0.0.6
+numpy==1.24.3
+scikit-learn==1.3.2
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==2.0.1+cpu 
+torchvision==0.15.2+cpu

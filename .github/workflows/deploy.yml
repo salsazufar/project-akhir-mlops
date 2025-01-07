@@ -1,0 +1,98 @@
+name: Deploy to Vercel
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths:
+            - "script/**"
+            - "requirements-deploy.txt"
+            - "vercel.json"
+    workflow_run:
+        workflows: ["MLOps CI/CD Pipeline"]
+        types:
+            - completed
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        if: |
+            github.event_name == 'workflow_dispatch' ||
+            github.event_name == 'push' ||
+            (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v2
+              with:
+                  node-version: "16"
+
+            - name: Install Vercel CLI
+              run: npm install --global vercel@latest
+
+            - name: Setup Vercel Project
+              run: |
+                  # Create necessary directories
+                  mkdir -p .vercel/output/functions/script
+                  mkdir -p .vercel/output/functions/model
+                  mkdir -p .vercel/output/static
+                  
+                  # Copy files to their correct locations
+                  cp -r script/* .vercel/output/functions/script/
+                  cp -r model/* .vercel/output/functions/model/
+                  cp requirements-deploy.txt .vercel/output/functions/
+                  
+                  # Create project.json
+                  echo '{
+                    "orgId": "${{ secrets.VERCEL_ORG_ID }}",
+                    "projectId": "${{ secrets.VERCEL_PROJECT_ID }}"
+                  }' > .vercel/project.json
+                  
+                  # Copy existing config files
+                  cp vercel/output/builds.json .vercel/output/
+                  
+                  # Create config.json
+                  echo '{
+                    "version": 3,
+                    "routes": [
+                      {
+                        "src": "/(.*)",
+                        "dest": "script/app.py"
+                      }
+                    ],
+                    "functions": {
+                      "script/app.py": {
+                        "runtime": "python3.9",
+                        "memory": 1024,
+                        "maxDuration": 10
+                      }
+                    }
+                  }' > .vercel/output/config.json
+                  
+                  # Verify directory structure
+                  echo "=== Directory Structure ==="
+                  tree .vercel/output
+                  
+                  echo "=== Contents of functions/script ==="
+                  ls -la .vercel/output/functions/script
+                  
+                  echo "=== Contents of functions/model ==="
+                  ls -la .vercel/output/functions/model
+
+            - name: Create Project Link
+              run: |
+                  mkdir -p .vercel
+                  echo '{"orgId":"${{ secrets.VERCEL_ORG_ID }}","projectId":"${{ secrets.VERCEL_PROJECT_ID }}"}' > .vercel/project.json
+
+            - name: Deploy to Vercel
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+              run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
