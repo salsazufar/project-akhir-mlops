@@ -281,6 +281,16 @@ temp/
 # If you have environment-specific configurations, you might want to ignore them.
 # For example:
 # config/local.yml
+
+# Environment and credentials files
+.env
+.env.*
+*.env
+*.env.*
+*credentials*
+*secret*
+*.pem
+*.key
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
